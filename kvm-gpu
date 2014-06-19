@@ -89,6 +89,8 @@ while true; do
     esac
 done
 
+OPT_ARCH=${OPT_ARCH:-x86_64}
+
 if [ "$OPT_VIRTIO" ]; then
     IF_VIRTIO=",if=virtio"
     TYPE_VIRTIO=",type=virtio"
