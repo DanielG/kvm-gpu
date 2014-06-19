@@ -16,12 +16,11 @@
 
 usage () {
     printf "Usage: %s [OPTIONS...] -- [QEMU_OPTIONS...] \n" \
-	"$(dirname "$0")"
+	"$(basename "$0")"
     printf "\
 *Options*\n\
 	--virtio\n\
 		Enable virtio for disks, cdrom drives and NICs.\n\
-\n\
 	-a, --arch=ARCH\n\
 		QEMU architecture to use. \`qemu-system-ARCH' must exist if\n\
 		you use this options. (default: x86_64)\n\
@@ -32,9 +31,10 @@ usage () {
 	-g, --graphics=GFX_KIND\n\
 		Add a graphics device to the guest system. Valid options for\n\
 		GFX_KIND (defaults to: emu):\n\
-		  - emu\n\
-		  - gpu[:DEVICE_FN_0[,DEVICE_FN_n...]]\n\
-		  - vnc[:PORT]\n\
+\n\
+		- emu\n\n\
+		- gpu[:DEVICE_FN_0[,DEVICE_FN_n...]]\n\n\
+		- vnc[:PORT]\n\n\
 	-c, --cdrom=FILE\n\
 		Attach a cdrom drive. FILE must be an *.iso file.
 	-d, --disk=FILE\n\
@@ -42,9 +42,10 @@ usage () {
 		mappings: *.img,*.raw -> raw; *.qcow2 -> qcow2\n\
 	-n, --nic=NET\n\
 		Add a network interface. Valid options for NET are:\n\
-		  - none\n\
-		  - user\n\
-		  - tap[:iface]\n\
+\n\
+		- none\n\n\
+		- user\n\n\
+		- tap[:iface]\n\n\
 		By default a \`user' NIC is added if no other NICs are\n\
 		specified.
 	--ignore-disk-format\n\

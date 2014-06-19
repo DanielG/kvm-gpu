@@ -1,1 +1,2 @@
-debian/vfio-bind.8
+vfio-bind.8
+kvm-gpu.1
