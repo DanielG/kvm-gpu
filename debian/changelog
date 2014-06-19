@@ -1,6 +1,7 @@
 kvm-gpu (0.4) UNRELEASED; urgency=medium
 
-  * Add kvm-gpu wrapper script to simplify invoking qemu with the right options for gpu passthrough
+  * Add kvm-gpu wrapper script to simplify invoking qemu with the right options
+    for gpu passthrough
 
  -- Daniel Gröber <dxld@darkboxed.org>  Thu, 19 Jun 2014 19:58:23 +0200
 
