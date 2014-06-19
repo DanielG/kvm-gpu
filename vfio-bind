@@ -1,0 +1,32 @@
+#!/bin/sh
+
+usage () {
+    echo "Usage "$(basename "$0")": [-u] devices"
+}
+
+if [ x"$1" = x"-u" ]; then
+    UNBIND=1; shift
+elif [ x"$1" = x"--help" ] || [ x"$1" = x"-h" ]; then
+    usage
+    exit 1
+fi
+
+if [ "$*" ]; then
+    DEVICES="$@"
+fi
+
+for dev in $DEVICES; do
+    (
+	cd "/sys/bus/pci/devices/$dev/"
+        vendor=$(cat vendor)
+        device=$(cat device)
+        if [ -e driver ]; then
+            echo $dev > driver/unbind
+        fi
+	if [ ! "$UNBIND" ]; then
+            echo $vendor $device > /sys/bus/pci/drivers/vfio-pci/new_id
+	else
+	    echo $vendor $device > /sys/bus/pci/drivers/vfio-pci/remove_id
+	fi
+    )
+done

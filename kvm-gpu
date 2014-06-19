@@ -1,0 +1,232 @@
+#!/bin/bash
+# Copyright (C) 2014  Daniel Gröber <dxld ÄT darkboxed DOT org>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+usage () {
+    printf "Usage: %s [OPTIONS...] -- [QEMU_OPTIONS...] \n" \
+	"$(dirname "$0")"
+    printf "\
+*Options*\n\
+	--virtio\n\
+		Enable virtio for disks, cdrom drives and NICs.\n\
+\n\
+	-a, --arch=ARCH\n\
+		QEMU architecture to use. \`qemu-system-ARCH' must exist if\n\
+		you use this options. (default: x86_64)\n\
+	-s, --smp=CPUS\n\
+		Set the number of CPU cores.\n\
+	-m, --memory=RAM\n\
+		Set the ammount of RAM in MiB.
+	-g, --graphics=GFX_KIND\n\
+		Add a graphics device to the guest system. Valid options for\n\
+		GFX_KIND (defaults to: emu):\n\
+		  - emu\n\
+		  - gpu[:DEVICE_FN_0[,DEVICE_FN_n...]]\n\
+		  - vnc[:PORT]\n\
+	-c, --cdrom=FILE\n\
+		Attach a cdrom drive. FILE must be an *.iso file.
+	-d, --disk=FILE\n\
+		The format is decided based on the FILE extension. Supported\n\
+		mappings: *.img,*.raw -> raw; *.qcow2 -> qcow2\n\
+	-n, --nic=NET\n\
+		Add a network interface. Valid options for NET are:\n\
+		  - none\n\
+		  - user\n\
+		  - tap[:iface]\n\
+		By default a \`user' NIC is added if no other NICs are\n\
+		specified.
+	--ignore-disk-format\n\
+		Let qemu automatically detect the disk format.\n\
+\n\
+\n\
+"
+}
+
+error () {
+    echo "Error: $1" >&2
+}
+
+OPTS="$(getopt \
+    -o "hs:a:m:g:c:d:n:" \
+    --long "help,virtio,ignore-disk-format,arch:,smp:,memory:,graphics:,cdrom:,disk:,nic:" \
+    -n "$(basename "$0")" -- "$@")"
+eval set -- "$OPTS"
+
+OPT_GFX=()
+OPT_CDS=()
+OPT_DIS=()
+OPT_NET=()
+
+# Additional QEMU options, appended after all other options
+while true; do
+    case "$1" in
+        --virtio)      OPT_VIRTIO=1; shift ;;
+	--ignore-disk-format) OPT_AUTO_DISK_FMT=1; shift ;;
+
+	-h|--help)     usage; exit; ;;
+        -a|--arch)     OPT_ARCH="$2";  shift; shift ;;
+        -s|--smp)      OPT_SMP="$2";   shift; shift ;;
+        -m|--memory)   OPT_RAM="$2";   shift; shift ;;
+        -g|--graphics) OPT_GFX+=("$2"); shift; shift ;;
+        -c|--cdrom)    OPT_CDS+=("$2"); shift; shift ;;
+        -d|--disk)     OPT_DIS+=("$2"); shift; shift ;;
+        -n|--nic)      OPT_NIC+=("$2"); shift; shift ;;
+        --) shift; break ;;
+        *) echo "Error parsing argument: $1">&2; exit 1 ;;
+    esac
+done
+
+if [ "$OPT_VIRTIO" ]; then
+    IF_VIRTIO=",if=virtio"
+    TYPE_VIRTIO=",type=virtio"
+fi
+
+# QEMU options
+QO=(
+    "--enable-kvm"
+    "-monitor" "stdio"
+    "-cpu" "host"
+    "-M" "q35"
+)
+
+if [ "$OPT_SMP" ]; then
+    QO+=("-smp" "$OPT_SMP")
+fi
+
+if [ "$OPT_RAM" ]; then
+    QO+=("-m" "$OPT_RAM")
+fi
+
+# CDROMs
+for c in "${OPT_CDS[@]}"; do
+    QO+=("-drive" "file=$c,media=cdrom"$IF_VIRTIO)
+done
+
+disk_format () {
+    case "$1" in
+	*.raw|*.img) echo raw ;;
+	*.qcow2) echo qcow2 ;;
+
+	*) exit 1 ;;
+    esac
+}
+
+# HDDs
+for d in "${OPT_DIS[@]}"; do
+    fmt=$(disk_format "$d")
+    if [ $? -eq 0 ]; then
+	fmt=",format=$fmt"
+    else
+	if [ "$OPT_AUTO_DISK_FMT" ]; then
+	    fmt=""
+	else
+            error "Unknown disk format: \`$c'"
+	    exit 1
+	fi
+    fi
+
+    QO+=("-drive" "file=$d,media=disk"${IF_VIRTIO}${fmt})
+done
+
+for n in "${OPT_NIC[@]}"; do
+    kind=${n//:*/}
+    params=$(echo "$n" | sed 's/^[^:]*://')
+
+    IFS=',' read -ra net_params <<< "$params"
+
+    nic=("-net" "nic$TYPE_VIRTIO")
+    case "$kind" in
+        none) QO+=("-net" "none") ;;
+        user) QO+=("${nic[@]}" "-net" "user") ;;
+        tap)
+            iface=${net_params[0]:-kvmtap0}
+            QO+=(
+                "${nic[@]}"
+                "-net" "tap,ifname=${iface},script=no,downscript=no"
+            )
+            ;;
+        *)
+            error "Unknown nic device: \`$n'"
+            exit 1
+    esac
+done
+
+
+# Graphics cards
+unset emu_gfx # did we use any emulated gfx cards?
+unset gpu_gfx # did we use any pcie passthrough cards?
+declare -i pci_addr=0 # current pci guest address for GPUs
+for gfx in "${OPT_GFX[@]}"; do
+    kind=${gfx//:*/}
+    params=$(echo "$gfx" | sed 's/^[^:]*://')
+
+    IFS=',' read -ra gfx_params <<< "$params"
+    case "$kind" in
+	emu)
+	    QO+=("-vga")
+
+	    if [ "${gfx_params[0]}" ]; then
+		QO+="${gfx_params[0]}"
+	    else
+		QO+="std"
+	    fi
+
+	    emu_gfx=1
+	    ;;
+	gpu)
+	    declare -i pci_fn=0
+	    for addr in "${gfx_params[@]}"; do
+		pci_addrS=$(printf '%02d' "$pci_addr")
+		dev="vfio-pci,host=$addr,bus=root.1,addr=$pci_addrS.$pci_fn"
+		if [ $pci_fn -eq 0 ]; then
+		    # primary device
+		    dev+=",multifunction=on,x-vga=on"
+		fi
+		QO+=("-device" $dev)
+		pci_fn+=1
+	    done
+	    pci_addr+=1
+	    ;;
+	vnc)
+	    error "vnc is TODO"
+	    exit 1
+	    ;;
+
+	*)
+	    error "Unknown graphics device \`${GFX_PARAMS[0]}'"
+	    exit 1
+    esac
+done
+
+# Disable display so we don't need an X11 display when we're not using
+# emulated graphics
+if [ ! "$emu_gfx" ]; then
+    QO+=("-display" "none")
+fi
+
+
+if [ "$gpu_gfx" ]; then
+    # q35 PCIe ports (see qemu/docs/q35-chipset.cfg)
+    QO+=(
+	"-device"
+	"ioh3420,bus=pcie.0,addr=1c.0,port=1,chassis=1,multifunction=on,id=root.1"
+    )
+fi
+
+QO+=("$@") # add user QEMU options
+
+#ruby -e 'p ARGV' -- "${QO[@]}"
+
+exec qemu-system-"$OPT_ARCH" "${QO[@]}"

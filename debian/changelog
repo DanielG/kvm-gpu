@@ -1,0 +1,24 @@
+kvm-gpu (0.4) UNRELEASED; urgency=medium
+
+  * Add kvm-gpu wrapper script to simplify invoking qemu with the right options for gpu passthrough
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Thu, 19 Jun 2014 19:58:23 +0200
+
+kvm-gpu (0.3) unstable; urgency=medium
+
+  * Fix vfio-bind again.
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Thu, 19 Jun 2014 19:58:13 +0200
+
+kvm-gpu (0.2) unstable; urgency=medium
+
+  * Improve DEVICES comment in `default', should indicate formatting required
+  * Fix vfio-bind bugs
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Wed, 18 Jun 2014 01:36:14 +0200
+
+kvm-gpu (0.1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Fri, 06 Jun 2014 21:44:20 +0200

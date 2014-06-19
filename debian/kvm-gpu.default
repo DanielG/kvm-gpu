@@ -1,0 +1,5 @@
+# Defaults for kvm-gpu initscript
+# EnvironmentFile for systemd service kvm-gpu.service
+
+# Devices to bind to the vfio-pci driver (space seperated)
+DEVICES=""

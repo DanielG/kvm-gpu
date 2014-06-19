@@ -1,0 +1,12 @@
+[Unit]
+Description=Bind PCI devices to KVM/VFIO
+Documentation=man:kvm-gpu(8)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/default/kvm-gpu
+ExecStart=/usr/sbin/vfio-bind
+
+[Install]
+WantedBy=multi-user.target

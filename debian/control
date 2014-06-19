@@ -1,0 +1,15 @@
+Source: kvm-gpu
+Section: admin
+Priority: optional
+Maintainer: Daniel Gröber <dxld@darkboxed.org>
+Build-Depends: debhelper (>= 9.0.0), dh-systemd (>= 1.5)
+Standards-Version: 3.9.5
+#Vcs-Git: git://git.debian.org/collab-maint/kvm-gpu.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/kvm-gpu.git;a=summary
+
+Package: kvm-gpu
+Architecture: all
+Depends: ${misc:Depends}, qemu-system-x86, bash
+Description: Bind PCI/GPU devices to VFIO on startup for use with KVM
+ Bind PCI/GPU devices to VFIO on startup so they can be passed trought to
+ virtual machines using KVM as a hypervisor.

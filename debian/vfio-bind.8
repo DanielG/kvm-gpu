@@ -1,0 +1,30 @@
+.\" Hey, EMACS: -*- nroff -*-
+.\" (C) Copyright 2014 Daniel Gröber <dxld@darkboxed.org>,
+.TH KVM-GPU 8 "June  6, 2014"
+.SH NAME
+vfio-bind \- bind PCI devices to VFIO driver by PCI address
+.SH SYNOPSIS
+.B vfio-bind
+.RI [-u] "device" ...
+.SH DESCRIPTION
+Each
+.I device
+argument should be a linux PCI device address as used by the directories in
+.RI "" /sys/bus/pci/devices .
+
+If no
+.I device
+is given the environment variable
+.I DEVICES
+is used.
+
+.SH OPTIONS
+.TP
+.B \-u
+Unbind devices.
+
+
+.SH SEE ALSO
+.BR kvm (1)
+.SH AUTHOR
+Daniel Gröber <dxld@darkboxed.org>
