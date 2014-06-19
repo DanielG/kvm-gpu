@@ -10,6 +10,7 @@ Standards-Version: 3.9.5
 Package: kvm-gpu
 Architecture: all
 Depends: ${misc:Depends}, qemu-system-x86, bash
-Description: Bind PCI/GPU devices to VFIO on startup for use with KVM
- Bind PCI/GPU devices to VFIO on startup so they can be passed trought to
- virtual machines using KVM as a hypervisor.
+Description: Utilities for GPU passthrough with KVM
+ kvm-gpu provides utilities, init scripts and configuration files to setup a
+ host system for passthrough of GPUs and other PCIe devices to virtual machines
+ using the KVM hypervisor.
