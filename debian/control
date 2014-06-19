@@ -9,7 +9,7 @@ Standards-Version: 3.9.5
 
 Package: kvm-gpu
 Architecture: all
-Depends: ${misc:Depends}, qemu-system-x86, bash
+Depends: ${misc:Depends}, qemu-system-x86
 Description: Utilities for GPU passthrough with KVM
  kvm-gpu provides utilities, init scripts and configuration files to setup a
  host system for passthrough of GPUs and other PCIe devices to virtual machines
