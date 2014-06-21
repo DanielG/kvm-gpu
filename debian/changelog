@@ -1,9 +1,22 @@
-kvm-gpu (0.4) UNRELEASED; urgency=medium
+kvm-gpu (0.6) unstable; urgency=medium
+
+  * Enable transparent huge pages.
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Sat, 21 Jun 2014 21:51:28 +0200
+
+kvm-gpu (0.5) unstable; urgency=medium
+
+  * Fix kvm-gpu default for OPT_ARCH.
+  * Fix kvm-gpu, ioh3420 must be specified before gpu devices.
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Thu, 19 Jun 2014 20:42:12 +0200
+
+kvm-gpu (0.4) unstable; urgency=medium
 
   * Add kvm-gpu wrapper script to simplify invoking qemu with the right options
-    for gpu passthrough
+    for gpu passthrough.
 
- -- Daniel Gröber <dxld@darkboxed.org>  Thu, 19 Jun 2014 19:58:23 +0200
+ -- Daniel Gröber <dxld@darkboxed.org>  Thu, 19 Jun 2014 20:35:42 +0200
 
 kvm-gpu (0.3) unstable; urgency=medium
 

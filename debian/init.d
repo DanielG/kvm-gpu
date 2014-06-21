@@ -38,6 +38,7 @@ SCRIPTNAME=/etc/init.d/$NAME
 case "$1" in
   start)
 	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+        echo always > /sys/kernel/mm/transparent_hugepage/enabled
 	vfio-bind $DEVICES
 	case "$?" in
 		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;

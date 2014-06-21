@@ -61,19 +61,20 @@ error () {
 
 OPTS="$(getopt \
     -o "hs:a:m:g:c:d:n:" \
-    --long "help,virtio,ignore-disk-format,arch:,smp:,memory:,graphics:,cdrom:,disk:,nic:" \
+    --long "help,virtio,cdrom-no-virtio,ignore-disk-format,arch:,smp:,memory:,graphics:,cdrom:,disk:,nic:" \
     -n "$(basename "$0")" -- "$@")"
 eval set -- "$OPTS"
 
 OPT_GFX=()
 OPT_CDS=()
 OPT_DIS=()
-OPT_NET=()
+OPT_NIC=()
 
 # Additional QEMU options, appended after all other options
 while true; do
     case "$1" in
-        --virtio)      OPT_VIRTIO=1; shift ;;
+        --virtio)             OPT_VIRTIO=1; shift ;;
+        --cdrom-no-virtio)    OPT_CDROM_NO_VIRTIO=1; shift ;;
 	--ignore-disk-format) OPT_AUTO_DISK_FMT=1; shift ;;
 
 	-h|--help)     usage; exit; ;;
@@ -91,11 +92,6 @@ done
 
 OPT_ARCH=${OPT_ARCH:-x86_64}
 
-if [ "$OPT_VIRTIO" ]; then
-    IF_VIRTIO=",if=virtio"
-    TYPE_VIRTIO=",type=virtio"
-fi
-
 # QEMU options
 QO=(
     "--enable-kvm"
@@ -103,6 +99,29 @@ QO=(
     "-cpu" "host"
     "-M" "q35"
 )
+
+
+declare -gi ide_id=0
+declare -gi hdd_id=0
+declare -gi cdrom_id=0
+
+if [ "$OPT_CDROM_NO_VIRTIO" ] || [ ! "$OPT_VIRTIO" ]; then
+    cdrom_virtio () { echo "ide-cd,drive=cdrom${cdrom_id},bus=ide.${ide_id}"; }
+elif [ "$OPT_VIRTIO" ]; then
+    cdrom_virtio () { echo "scsi-cd,drive=cdrom${cdrom_id}"; }
+fi
+
+if [ "$OPT_VIRTIO" ]; then
+    QO+=("-device" "virtio-scsi-pci,id=virtio-scsi")
+
+    disk_virtio () { echo "scsi-hd,drive=hdd${hdd_id}"; }
+    NIC_VIRTIO=",model=virtio"
+else
+#    QO+=("-device" "piix4-ide,bus=pcie.0,id=piix4-ide${ide_ctrl}")
+
+    disk_virtio () { echo "ide-hd,drive=hdd${hdd_id},bus=ide.${ide_id}"; }
+    NIC_VIRTIO=",model=rtl8139"
+fi
 
 if [ "$OPT_SMP" ]; then
     QO+=("-smp" "$OPT_SMP")
@@ -112,10 +131,7 @@ if [ "$OPT_RAM" ]; then
     QO+=("-m" "$OPT_RAM")
 fi
 
-# CDROMs
-for c in "${OPT_CDS[@]}"; do
-    QO+=("-drive" "file=$c,media=cdrom"$IF_VIRTIO)
-done
+# TODO: interleave disk and cdrom options to preserve order better
 
 disk_format () {
     case "$1" in
@@ -127,8 +143,8 @@ disk_format () {
 }
 
 # HDDs
-for d in "${OPT_DIS[@]}"; do
-    fmt=$(disk_format "$d")
+for hdd in "${OPT_DIS[@]}"; do
+    fmt=$(disk_format "$hdd")
     if [ $? -eq 0 ]; then
 	fmt=",format=$fmt"
     else
@@ -140,7 +156,18 @@ for d in "${OPT_DIS[@]}"; do
 	fi
     fi
 
-    QO+=("-drive" "file=$d,media=disk"${IF_VIRTIO}${fmt})
+    QO+=("-drive"  "file=$hdd,media=disk,id=hdd${hdd_id}"${fmt}
+         "-device" "$(disk_virtio)")
+
+    hdd_id+=1; ide_id+=1;
+done
+
+# CDROMs
+for cdrom in "${OPT_CDS[@]}"; do
+    QO+=("-drive"  "file=${cdrom},id=cdrom${cdrom_id}"
+         "-device" "$(cdrom_virtio)")
+
+    cdrom_id+=1; ide_id+=1;
 done
 
 for n in "${OPT_NIC[@]}"; do
@@ -149,7 +176,7 @@ for n in "${OPT_NIC[@]}"; do
 
     IFS=',' read -ra net_params <<< "$params"
 
-    nic=("-net" "nic$TYPE_VIRTIO")
+    nic=("-net" "nic$NIC_VIRTIO")
     case "$kind" in
         none) QO+=("-net" "none") ;;
         user) QO+=("${nic[@]}" "-net" "user") ;;
@@ -175,20 +202,22 @@ for gfx in "${OPT_GFX[@]}"; do
     kind=${gfx//:*/}
     params=$(echo "$gfx" | sed 's/^[^:]*://')
 
-    IFS=',' read -ra gfx_params <<< "$params"
+    if [ x"$kind" != x"$params" ]; then
+        IFS=',' read -ra gfx_params <<< "$params"
+    fi
     case "$kind" in
 	emu)
+	    emu_gfx=1
 	    QO+=("-vga")
 
 	    if [ "${gfx_params[0]}" ]; then
-		QO+="${gfx_params[0]}"
+		QO+=("${gfx_params[0]}")
 	    else
-		QO+="std"
+		QO+=("std")
 	    fi
-
-	    emu_gfx=1
 	    ;;
 	gpu)
+            gpu_gfx=1
 	    declare -i pci_fn=0
 	    for addr in "${gfx_params[@]}"; do
 		pci_addrS=$(printf '%02d' "$pci_addr")
@@ -208,7 +237,7 @@ for gfx in "${OPT_GFX[@]}"; do
 	    ;;
 
 	*)
-	    error "Unknown graphics device \`${GFX_PARAMS[0]}'"
+	    error "Unknown graphics device \`$kind'"
 	    exit 1
     esac
 done
@@ -216,20 +245,22 @@ done
 # Disable display so we don't need an X11 display when we're not using
 # emulated graphics
 if [ ! "$emu_gfx" ]; then
-    QO+=("-display" "none")
+    QO+=("-display" "none"
+         "-vga" "none")
 fi
 
 
 if [ "$gpu_gfx" ]; then
     # q35 PCIe ports (see qemu/docs/q35-chipset.cfg)
-    QO+=(
+    QO=(
 	"-device"
 	"ioh3420,bus=pcie.0,addr=1c.0,port=1,chassis=1,multifunction=on,id=root.1"
+        "${QO[@]}"
     )
 fi
 
 QO+=("$@") # add user QEMU options
 
-#ruby -e 'p ARGV' -- "${QO[@]}"
+ruby -e 'p ARGV' -- "${QO[@]}"
 
 exec qemu-system-"$OPT_ARCH" "${QO[@]}"
