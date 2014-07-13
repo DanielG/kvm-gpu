@@ -48,6 +48,11 @@ usage () {
 		- tap[:iface]\n\n\
 		By default a \`user' NIC is added if no other NICs are\n\
 		specified.
+	--usb-port=VENDOR_ID:PRODUCT_ID
+		Attach usb device by VENDOR_ID, PRODUCT_ID but use the USB\n\
+		bus/port this device is attached to when passing it on to KVM.\n\
+		This is useful for KVM-Switches (Keyboard, Video, Mouse \n\
+		switch) that include a USB port.
 	--ignore-disk-format\n\
 		Let qemu automatically detect the disk format.\n\
 \n\
@@ -61,7 +66,7 @@ error () {
 
 OPTS="$(getopt \
     -o "hs:a:m:g:c:d:n:" \
-    --long "help,virtio,cdrom-no-virtio,ignore-disk-format,arch:,smp:,memory:,graphics:,cdrom:,disk:,nic:" \
+    --long "help,virtio,cdrom-no-virtio,ignore-disk-format,arch:,smp:,memory:,graphics:,cdrom:,disk:,nic:,usb-port:" \
     -n "$(basename "$0")" -- "$@")"
 eval set -- "$OPTS"
 
@@ -69,6 +74,7 @@ OPT_GFX=()
 OPT_CDS=()
 OPT_DIS=()
 OPT_NIC=()
+OPT_USB=()
 
 # Additional QEMU options, appended after all other options
 while true; do
@@ -85,6 +91,7 @@ while true; do
         -c|--cdrom)    OPT_CDS+=("$2"); shift; shift ;;
         -d|--disk)     OPT_DIS+=("$2"); shift; shift ;;
         -n|--nic)      OPT_NIC+=("$2"); shift; shift ;;
+        --usb-port)    OPT_USB+=("$2"); shift; shift ;;
         --) shift; break ;;
         *) echo "Error parsing argument: $1">&2; exit 1 ;;
     esac
@@ -98,6 +105,7 @@ QO=(
     "-monitor" "stdio"
     "-cpu" "host"
     "-M" "q35"
+    "-usb"
 )
 
 
@@ -193,6 +201,26 @@ for n in "${OPT_NIC[@]}"; do
     esac
 done
 
+# USB-ports
+for usb in "${OPT_USB[@]}"; do
+    usb_bus=$(lsusb | grep "$usb" | awk '{ print $2 }' | sed 's/^0*//')
+    usb_dev=$(lsusb | grep "$usb" | awk '{ gsub(":","",$4); print $4 }' | sed 's/^0*//')
+
+    usb_port=$(lsusb -t \
+        | sed -n -e '/Bus 0*'"$usb_bus"'/,/Bus/p' \
+        | sed -e '1d' -e '$d' \
+        | sed -n '/Dev 0*'"$usb_dev"'/p' \
+        | sed -n '1p' \
+        | sed 's/^.*Port \([0-9]\).*$/\1/g')
+
+    if [ -z "$usb_port" ]; then
+        echo "Could not find USB port for \`$usb'">&2
+        exit 1
+    fi
+
+    QO+=("-device" "usb-host,hostbus=$usb_bus,hostport=$usb_port")
+done
+
 
 # Graphics cards
 unset emu_gfx # did we use any emulated gfx cards?
@@ -260,7 +288,5 @@ if [ "$gpu_gfx" ]; then
 fi
 
 QO+=("$@") # add user QEMU options
-
-ruby -e 'p ARGV' -- "${QO[@]}"
 
 exec qemu-system-"$OPT_ARCH" "${QO[@]}"
