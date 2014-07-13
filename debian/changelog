@@ -1,3 +1,9 @@
+kvm-gpu (0.7) unstable; urgency=medium
+
+  * Add support for attaching USB devices by port.
+
+ -- Daniel Gröber <dxld@darkboxed.org>  Sun, 13 Jul 2014 07:09:32 +0200
+
 kvm-gpu (0.6) unstable; urgency=medium
 
   * Enable transparent huge pages.
