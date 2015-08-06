@@ -164,7 +164,7 @@ for hdd in "${OPT_DIS[@]}"; do
 	fi
     fi
 
-    QO+=("-drive"  "file=$hdd,media=disk,id=hdd${hdd_id}"${fmt}
+    QO+=("-drive"  "file=$hdd,media=disk,id=hdd${hdd_id},if=none"${fmt}
          "-device" "$(disk_virtio)")
 
     hdd_id+=1; ide_id+=1;
@@ -172,7 +172,7 @@ done
 
 # CDROMs
 for cdrom in "${OPT_CDS[@]}"; do
-    QO+=("-drive"  "file=${cdrom},id=cdrom${cdrom_id}"
+    QO+=("-drive"  "file=${cdrom},id=cdrom${cdrom_id},if=none"
          "-device" "$(cdrom_virtio)")
 
     cdrom_id+=1; ide_id+=1;
